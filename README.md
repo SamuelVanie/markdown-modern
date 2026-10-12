@@ -227,6 +227,11 @@ no work. There is no source/rendered toggle to manage.
 You can also reveal the element at point on demand with
 `markdown-modern-toggle-element-at-point` (`C-c C-v e`).
 
+Inside a fenced code block, `C-c '` opens an indirect buffer narrowed to that
+block's contents, with the language's major mode when available. Edits update
+the Markdown buffer. Press `C-c '` again to finish, or `C-c C-k` to abort and
+restore the original code.
+
 Click a link label to follow it, or use `C-c C-o` with point anywhere in
 the link, including its revealed source. Moving point into a link with the
 keyboard still reveals its markup for editing.

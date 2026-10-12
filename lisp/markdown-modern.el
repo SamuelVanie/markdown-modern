@@ -720,9 +720,13 @@ Plist keys: :block-start :block-end :content-start :content-end :language."
   (when-let* ((block (markdown-modern-ts--containing-block pos)))
     (when (eq (markdown-modern-node-type block) 'code-block)
       (let* ((node (markdown-modern-node-treesit-node block))
-             (content (car (treesit-filter-child
-                            node (lambda (child)
-                                   (equal (treesit-node-type child) "code_fence_content")))))
+             ;; Sibling traversal can skip code_fence_content after the
+             ;; grammar's zero-width block_continuation node.  Read the
+             ;; parent's indexed children instead.
+             (content (cl-find-if
+                       (lambda (child)
+                         (equal (treesit-node-type child) "code_fence_content"))
+                       (treesit-node-children node)))
              (content-start (if content (treesit-node-start content)
                               (save-excursion
                                 (goto-char (markdown-modern-node-start block))

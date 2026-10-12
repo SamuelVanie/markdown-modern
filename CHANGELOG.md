@@ -16,6 +16,8 @@ changes.
 
 ### Fixed
 
+- `C-c '` could open an empty edit buffer when Tree-sitter skipped the code
+  block's content node. It now shows the block's contents.
 - Clicking a link label no longer reveals its markup before the link opens.
   A click in another window follows the link in that window's buffer.
 

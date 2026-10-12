@@ -293,6 +293,9 @@ the inline grammar still parses them as such inside the code_span."
                 (markdown-modern-edit-code-block)
                 (setq edit (current-buffer))
                 (should (derived-mode-p 'python-mode))
+                (should (buffer-narrowed-p))
+                (should (equal (buffer-substring-no-properties (point-min) (point-max))
+                               "x\n"))
                 (with-current-buffer source
                   (should (markdown-modern--fenced-code-block-at 12)))
                 (goto-char (point-min))
@@ -307,6 +310,37 @@ the inline grammar still parses them as such inside the code_span."
                   (should-not (treesit-parser-list))))
             (when (buffer-live-p edit)
               (ignore-errors (kill-buffer edit)))))))))
+
+(ert-deftest integration/code-edit-shows-current-block ()
+  "The editor shows only the chosen block's content, excluding its fences."
+  (dolist (case '(("```emacs-lisp\n(message \"second\")\n(+ 1 2)\n```\n\nafter\n"
+                   "second" "(message \"second\")\n(+ 1 2)\n")
+                  ("~~~~emacs-lisp\n(message \"second\")\n```\n~~~~\n\nafter\n"
+                   "second" "(message \"second\")\n```\n")
+                  ("```emacs-lisp\n```\n\nafter\n" "emacs-lisp" "")
+                  ("```emacs-lisp\n(message \"second\")\n"
+                   "second" "(message \"second\")\n")))
+    (save-window-excursion
+      (with-temp-buffer
+        (insert "before\n\n```emacs-lisp\n(message \"first\")\n```\n\nbetween\n\n")
+        (let ((target-start (point)))
+          (insert (nth 0 case))
+          (markdown-modern-mode)
+          (goto-char target-start)
+          (search-forward (nth 1 case)))
+        (let ((source (current-buffer)) edit)
+          (unwind-protect
+              (progn
+                (markdown-modern-edit-code-block)
+                (setq edit (current-buffer))
+                (should (eq (buffer-base-buffer) source))
+                (should (derived-mode-p 'emacs-lisp-mode))
+                (should (buffer-narrowed-p))
+                (should (equal (buffer-substring-no-properties (point-min) (point-max))
+                               (nth 2 case)))
+                (markdown-modern-code-edit-abort))
+            (when (buffer-live-p edit)
+              (kill-buffer edit))))))))
 
 (ert-deftest integration/large-document-performance ()
   "Large document exports in reasonable time."
