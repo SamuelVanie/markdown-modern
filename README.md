@@ -227,6 +227,18 @@ no work. There is no source/rendered toggle to manage.
 You can also reveal the element at point on demand with
 `markdown-modern-toggle-element-at-point` (`C-c C-v e`).
 
+Click a link label to follow it, or use `C-c C-o` with point anywhere in
+the link, including its revealed source. Moving point into a link with the
+keyboard still reveals its markup for editing.
+
+Local file links open in the current Emacs window, with relative paths resolved
+against the Markdown file's directory. For example,
+`[Source](pkg/core/static_autoscaler.go#L352)` opens that file at line 352.
+Line ranges such as `#L352-L365` jump to the first line; heading fragments such
+as `notes.md#installation` still work. Absolute paths, local `file:` URLs and
+percent-encoded filenames are supported. Missing files report an error.
+Use `M-,` (`xref-go-back`) to return to the Markdown buffer.
+
 ### Navigation
 
 | Key | Command | Description |

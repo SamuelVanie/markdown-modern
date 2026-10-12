@@ -126,6 +126,153 @@ Only the text that the edit marks for re-rendering is rendered again."
       (should delim)
       (should (equal (overlay-get delim 'display) "")))))   ; (url) hidden
 
+(defmacro markdown-modern-render-test--with-local-file (&rest body)
+  "Run BODY with a Markdown SOURCE buffer and a 400-line local TARGET file."
+  (declare (indent 0))
+  `(let* ((directory (make-temp-file "markdown-modern-link-" t))
+          (target (expand-file-name "pkg/core/source.el" directory))
+          (auto-mode-alist nil)
+          (xref--history (xref--make-xref-history)))
+     (unwind-protect
+         (progn
+           (make-directory (file-name-directory target) t)
+           (with-temp-file target
+             (dotimes (line 400)
+               (insert (format ";; Line %d\n" (1+ line)))))
+           (save-window-excursion
+             (with-temp-buffer
+               (let ((source (current-buffer)))
+                 (setq buffer-file-name (expand-file-name "walkthrough.md" directory)
+                       default-directory "/")
+                 (insert "see [Source](pkg/core/source.el#L352) end\n")
+                 (markdown-modern-mode)
+                 (switch-to-buffer source)
+                 (markdown-modern--jit-fontify (point-min) (point-max))
+                 ,@body))))
+       (when-let* ((buffer (get-file-buffer target)))
+         (kill-buffer buffer))
+       (delete-directory directory t))))
+
+(ert-deftest render/local-link-follow-and-return ()
+  "Rendered and revealed local links visit the exact line and allow return."
+  (markdown-modern-render-test--with-local-file
+    (dolist (revealed '(nil t))
+      (goto-char 8)
+      (when revealed
+        (markdown-modern--update-reveal)
+        (search-forward "source.el"))
+      (let ((origin (point)))
+        (markdown-modern-follow-link-at-point)
+        (should (equal buffer-file-name target))
+        (should (= (line-number-at-pos) 352))
+        (should (= (current-column) 0))
+        (xref-go-back)
+        (should (eq (current-buffer) source))
+        (should (= (point) origin))))))
+
+(ert-deftest render/local-link-paths-and-ranges ()
+  "Absolute paths, file URLs, encoded names and ranges use local navigation."
+  (markdown-modern-render-test--with-local-file
+    (let ((encoded-target (expand-file-name "pkg/core/café source.el" directory)))
+      (rename-file target encoded-target)
+      (setq target encoded-target)
+      (dolist (url (list "pkg/core/caf%C3%A9%20source.el#L352-L365"
+                         (concat target "#L352")
+                         (concat "file://" target "#L352")
+                         (concat "file://localhost" target "#L352")))
+        (markdown-modern-render--follow-link url)
+        (should (equal buffer-file-name target))
+        (should (= (line-number-at-pos) 352))
+        (xref-go-back)
+        (should (eq (current-buffer) source))))))
+
+(ert-deftest render/local-link-missing-file ()
+  "A missing target reports an error without creating a buffer."
+  (markdown-modern-render-test--with-local-file
+    (should-error (markdown-modern-render--follow-link "pkg/missing.el#L352")
+                  :type 'user-error)
+    (should (eq (current-buffer) source))
+    (should-not (get-file-buffer (expand-file-name "pkg/missing.el" directory)))))
+
+(ert-deftest render/local-link-heading-and-line-fragments ()
+  "Heading anchors still work, and line anchors use absolute buffer lines."
+  (save-window-excursion
+    (with-temp-buffer
+      (insert "intro\n\n## Installation\n\nbody\n")
+      (switch-to-buffer (current-buffer))
+      (markdown-modern-render--follow-link "#installation")
+      (should (= (line-number-at-pos) 3))
+      (narrow-to-region (point) (point-max))
+      (markdown-modern-render--follow-link "#L2")
+      (should-not (buffer-narrowed-p))
+      (should (= (line-number-at-pos) 2))
+      (should-error (markdown-modern-render--follow-link "#L100")
+                    :type 'user-error)
+      (erase-buffer)
+      (insert "one\ntwo")
+      (should-error (markdown-modern-render--follow-link "#L3")
+                    :type 'user-error))))
+
+(ert-deftest render/local-link-without-fragment ()
+  "Plain file links open locally, using default-directory for unsaved notes."
+  (markdown-modern-render-test--with-local-file
+    (setq buffer-file-name nil
+          default-directory directory)
+    (markdown-modern-render--follow-link "pkg/core/source.el")
+    (should (equal buffer-file-name target))
+    (xref-go-back)
+    (should (eq (current-buffer) source))))
+
+(ert-deftest render/link-other-schemes-use-browser ()
+  "Browser URLs and non-file schemes keep their existing handler."
+  (dolist (url '("https://example.com/source.el#L352"
+                 "HTTP://example.com" "mailto:user@example.com"
+                 "ftp://example.com/file" "//example.com/file"))
+    (let (visited)
+      (cl-letf (((symbol-function 'browse-url)
+                 (lambda (target &rest _) (setq visited target))))
+        (markdown-modern-render--follow-link url))
+      (should (equal visited url)))))
+
+(ert-deftest render/local-link-mouse-in-other-window ()
+  "Mouse navigation uses the clicked window's buffer and leaves an origin."
+  (markdown-modern-render-test--with-local-file
+    (let* ((source-window (selected-window))
+           (other-window (split-window-below))
+           (position (list source-window 8 '(0 . 0) 0)))
+      (set-window-buffer other-window (get-buffer-create " *link-other-window*"))
+      (unwind-protect
+          (progn
+            (select-window other-window)
+            (markdown-modern-render--follow-link-at-mouse
+             (list 'mouse-1 position))
+            (should (eq (selected-window) source-window))
+            (should (equal (window-buffer source-window) (get-file-buffer target)))
+            (with-current-buffer (window-buffer source-window)
+              (should (= (line-number-at-pos) 352)))
+            (xref-go-back)
+            (should (eq (current-buffer) source))
+            (should (= (point) 8)))
+        (kill-buffer " *link-other-window*")))))
+
+(ert-deftest render/link-mouse-down-and-overlay-reuse ()
+  "Mouse-down keeps the label stable; pooled overlays lose link actions."
+  (markdown-modern-render-test--with "see [Source](source.el#L352) end\n"
+    (let ((link (markdown-modern-render-test--ov 'link-text)))
+      (goto-char (point-max))
+      (call-interactively
+       (lookup-key (overlay-get link 'keymap) [down-mouse-1]))
+      (markdown-modern--update-reveal)
+      (should-not markdown-modern--revealed-region)
+      (should (markdown-modern-render-test--ov 'link-delim))
+      (markdown-modern-render--release-overlay link)
+      (let ((reused (markdown-modern-render--get-overlay 1 4)))
+        (should (eq reused link))
+        (should-not (overlay-get reused 'keymap))
+        (should-not (overlay-get reused 'mouse-face))
+        (should-not (overlay-get reused 'follow-link))
+        (should-not (overlay-get reused 'markdown-modern-url))))))
+
 (defun markdown-modern-render-test--assert-code-block ()
   (markdown-modern-render-test--with "```python\nprint(1)\n```\n"
     ;; The opening/closing fences are hidden.

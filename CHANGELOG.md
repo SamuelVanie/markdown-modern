@@ -3,6 +3,22 @@
 All notable changes to markdown-modern are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+Thanks to Hemant Kumar ([@gnufied](https://github.com/gnufied)) for these
+changes.
+
+### Added
+
+- Local links open files of any type in Emacs, relative to the Markdown file.
+  Line fragments such as `#L352` and `#L352-L365` go to that line. `M-,` goes
+  back to the Markdown buffer. A missing file reports an error.
+
+### Fixed
+
+- Clicking a link label no longer reveals its markup before the link opens.
+  A click in another window follows the link in that window's buffer.
+
 ## [2.0.0] - 2026-10-09
 
 This release requires Tree-sitter. After upgrading from 1.x, run

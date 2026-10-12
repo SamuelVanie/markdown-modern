@@ -26,7 +26,10 @@
 
 (require 'cl-lib)
 (require 'face-remap)
+(require 'subr-x)
 (require 'url-parse)
+(require 'url-util)
+(require 'xref)
 (require 'markdown-modern-mermaid)
 
 ;; Variables defined in markdown-modern-ts.el
@@ -159,6 +162,10 @@
     (overlay-put ov 'wrap-prefix nil)
     (overlay-put ov 'line-prefix nil)
     (overlay-put ov 'priority nil)
+    (overlay-put ov 'keymap nil)
+    (overlay-put ov 'mouse-face nil)
+    (overlay-put ov 'follow-link nil)
+    (overlay-put ov 'markdown-modern-url nil)
     ;; Set standard properties
     (overlay-put ov 'markdown-modern t)
     (overlay-put ov 'evaporate t)
@@ -559,6 +566,9 @@ When POS is nil, join the lines of every paragraph."
 
 (defvar markdown-modern-render--link-keymap
   (let ((map (make-sparse-keymap)))
+    ;; Moving point on mouse-down reveals the markup and shifts the label
+    ;; before mouse-up can follow it.
+    (define-key map [down-mouse-1] #'ignore)
     (define-key map [mouse-1] #'markdown-modern-render--follow-link-at-mouse)
     (define-key map [mouse-2] #'markdown-modern-render--follow-link-at-mouse)
     (define-key map (kbd "RET") #'markdown-modern-render--follow-link-at-point)
@@ -597,23 +607,55 @@ When POS is nil, join the lines of every paragraph."
             (overlay-put ov 'markdown-modern-type 'link-delim)))))))
 
 (defun markdown-modern-render--follow-link (url)
-  "Follow link URL - handle internal anchors vs external URLs."
-  (cond
-   ;; Internal anchor link (starts with #)
-   ((string-prefix-p "#" url)
-    (let ((anchor (substring url 1)))
-      (markdown-modern-render--goto-anchor anchor)))
-   ;; Relative file link
-   ((and (not (string-match-p "^[a-z]+://" url))
-         (string-match-p "\\.md\\(?:#\\|$\\)" url))
-    (let* ((parts (split-string url "#"))
-           (file (car parts))
-           (anchor (cadr parts)))
-      (find-file (expand-file-name file))
-      (when anchor
-        (markdown-modern-render--goto-anchor anchor))))
-   ;; External URL
-   (t (browse-url url))))
+  "Follow URL to a local file, a buffer anchor, or a browser.
+Resolve relative files against the Markdown file's directory.  Local
+fragments may name a heading or a line, such as #L352 or #L352-L365."
+  (let ((case-fold-search t))
+    (cond
+     ((string-prefix-p "#" url)
+      (markdown-modern-render--goto-link-fragment (substring url 1)))
+     ((or (string-match-p "\\`file:" url)
+          (not (or (string-match-p "\\`[[:alpha:]][[:alnum:]+.-]*:" url)
+                   (string-prefix-p "//" url))))
+      (markdown-modern-render--follow-file-link url))
+     (t (browse-url url)))))
+
+(defun markdown-modern-render--follow-file-link (url)
+  "Open local file URL in Emacs and navigate to its fragment, if present."
+  (let* ((fragment-start (string-match "#" url))
+         (path (if fragment-start (substring url 0 fragment-start) url))
+         (fragment (and fragment-start (substring url (1+ fragment-start))))
+         (base (if buffer-file-name
+                   (file-name-directory buffer-file-name)
+                 default-directory)))
+    (when (let ((case-fold-search t)) (string-match-p "\\`file:" path))
+      (let* ((parsed (url-generic-parse-url path))
+             (host (url-host parsed)))
+        (unless (or (null host) (string-empty-p host)
+                    (string-equal (downcase host) "localhost"))
+          (user-error "Not a local file URL: %s" url))
+        (setq path (url-filename parsed))))
+    (setq path (expand-file-name
+                (decode-coding-string (url-unhex-string path) 'utf-8) base))
+    (unless (file-exists-p path)
+      (user-error "Link target does not exist: %s" path))
+    (xref-push-marker-stack)
+    (find-file path)
+    (when (and fragment (not (string-empty-p fragment)))
+      (markdown-modern-render--goto-link-fragment
+       (decode-coding-string (url-unhex-string fragment) 'utf-8)))))
+
+(defun markdown-modern-render--goto-link-fragment (fragment)
+  "Navigate to heading or line FRAGMENT in the current buffer.
+For a line range, navigate to its first line."
+  (if (let ((case-fold-search nil))
+        (string-match "\\`L\\([1-9][0-9]*\\)\\(?:-L[1-9][0-9]*\\)?\\'" fragment))
+      (let ((line (string-to-number (match-string 1 fragment))))
+        (widen)
+        (goto-char (point-min))
+        (unless (and (zerop (forward-line (1- line))) (bolp))
+          (user-error "Line %d not found in %s" line (buffer-name))))
+    (markdown-modern-render--goto-anchor fragment)))
 
 (defun markdown-modern-render--goto-anchor (anchor)
   "Navigate to ANCHOR (heading ID) in current buffer."
@@ -641,10 +683,15 @@ When POS is nil, join the lines of every paragraph."
 (defun markdown-modern-render--follow-link-at-mouse (event)
   "Follow link at mouse EVENT position."
   (interactive "e")
-  (let* ((pos (posn-point (event-end event)))
-         (url (get-char-property pos 'markdown-modern-url)))
-    (when url
-      (markdown-modern-render--follow-link url))))
+  (let* ((position (event-start event))
+         (window (posn-window position))
+         (pos (posn-point position)))
+    (when (and (windowp window) (integer-or-marker-p pos))
+      (when-let* ((url (with-current-buffer (window-buffer window)
+                        (get-char-property pos 'markdown-modern-url))))
+        (select-window window)
+        (goto-char pos)
+        (markdown-modern-render--follow-link url)))))
 
 (defun markdown-modern-render--follow-link-at-point ()
   "Follow link at point."
