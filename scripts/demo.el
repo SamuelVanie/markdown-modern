@@ -33,11 +33,31 @@
   (setq header-line-format (concat "  markdown-modern    /    " text)))
 
 (defun markdown-modern-demo--go (text &optional offset)
-  "Move to the end of TEXT, adjusted by OFFSET, and run normal motion hooks."
+  "Set the opening position to the end of TEXT, adjusted by OFFSET."
   (goto-char (point-min))
   (search-forward text)
   (forward-char (or offset 0))
   (run-hooks 'post-command-hook))
+
+(defun markdown-modern-demo--walk (text &optional offset)
+  "Walk to the end of TEXT plus OFFSET, recording each arrow-key movement."
+  (let* ((target (save-excursion
+                   (goto-char (point-min))
+                   (search-forward text)
+                   (+ (point) (or offset 0))))
+         (target-line (line-number-at-pos target))
+         (steps 0))
+    (while (/= (point) target)
+      (when (> (setq steps (1+ steps)) 400)
+        (error "Cannot walk to %S" text))
+      (let* ((line (line-number-at-pos))
+             (vertical (/= line target-line))
+             (key (cond ((< line target-line) "<down>")
+                        ((> line target-line) "<up>")
+                        ((< (point) target) "<right>")
+                        (t "<left>"))))
+        (execute-kbd-macro (kbd key))
+        (markdown-modern-demo--capture (if vertical 0.15 0.05))))))
 
 (defun markdown-modern-demo--type (text)
   "Type TEXT through the command loop, recording each character."
@@ -46,45 +66,49 @@
     (markdown-modern-demo--capture 0.1)))
 
 (defun markdown-modern-demo--record ()
-  "Record text editing, a checkbox toggle and an expanding table row."
+  "Record cursor motion, text editing, a new list item and a table edit."
   (condition-case err
       (progn
         (markdown-modern-demo--caption "Markdown, in place")
-        (markdown-modern-demo--go "Read")
-        (markdown-modern-demo--capture 1.8)
+        (markdown-modern-demo--go "Read" -4)
+        (markdown-modern-demo--capture 1.4)
 
         (markdown-modern-demo--caption "Move into text to reveal its markup")
-        (markdown-modern-demo--go "bold" -4)
-        (markdown-modern-demo--capture 1.2)
+        (markdown-modern-demo--walk "bold" -4)
+        (markdown-modern-demo--capture 0.8)
         (execute-kbd-macro (kbd "M-d"))
         (markdown-modern-demo--type "styled")
+        (markdown-modern-demo--capture 0.6)
+        (markdown-modern-demo--caption "Keep moving: bold renders, italics reveal")
+        (markdown-modern-demo--walk "emphasis" -5)
         (markdown-modern-demo--capture 0.8)
-        (markdown-modern-demo--caption "Move away to render it again")
-        (markdown-modern-demo--go "one buffer.")
-        (markdown-modern-demo--capture 1.8)
+        (markdown-modern-demo--walk "*emphasis*,")
+        (markdown-modern-demo--capture 0.8)
 
-        (markdown-modern-demo--caption "Press Space to check a task")
-        (markdown-modern-demo--go "- [ ]" -2)
-        (markdown-modern-demo--capture 0.9)
-        (execute-kbd-macro (kbd "SPC"))
-        (markdown-modern-demo--capture 1.5)
+        (markdown-modern-demo--caption "Add another list item with M-RET")
+        (markdown-modern-demo--walk "heading, link or code block")
+        (markdown-modern-demo--capture 0.6)
+        (execute-kbd-macro (kbd "M-RET"))
+        (markdown-modern-demo--capture 0.5)
+        (markdown-modern-demo--type "Keep adding ideas")
+        (markdown-modern-demo--capture 0.8)
 
         (markdown-modern-demo--caption "Edit a cell; the table adjusts as you type")
-        (markdown-modern-demo--go "A clear grid" -12)
+        (markdown-modern-demo--walk "A clear grid" -12)
         (markdown-modern-demo--capture 1.0)
         (execute-kbd-macro (kbd "C-SPC M-f M-f M-f C-w"))
         (markdown-modern-demo--type "Columns resize as you type")
-        (markdown-modern-demo--capture 1.2)
-        (markdown-modern-demo--caption "Keep writing in the same buffer")
-        (markdown-modern-demo--go "one buffer.")
-        (markdown-modern-demo--capture 2.2)
+        (markdown-modern-demo--capture 1.5)
+        (markdown-modern-demo--caption "Move out of the table; the grid stays aligned")
+        (markdown-modern-demo--walk "Keep the source close |\n")
+        (markdown-modern-demo--capture 3.0)
 
         ;; End on the opening state so the GIF loops without a visual jump.
         (erase-buffer)
         (insert markdown-modern-demo--source)
         (set-buffer-modified-p nil)
         (markdown-modern-demo--caption "Markdown, in place")
-        (markdown-modern-demo--go "Read")
+        (markdown-modern-demo--go "Read" -4)
         (markdown-modern-demo--capture 1.0)
         (write-region
          (concat markdown-modern-demo--manifest
@@ -107,7 +131,7 @@
 (set-face-attribute 'variable-pitch nil :font (font-spec :family "Noto Sans" :size 17))
 (set-face-attribute 'header-line nil :height 0.9 :box nil
                     :foreground "#454545" :background "#eeeeee")
-(set-frame-size (selected-frame) 850 640 t)
+(set-frame-size (selected-frame) 850 690 t)
 (setq inhibit-startup-screen t
       inhibit-startup-message t
       initial-scratch-message nil

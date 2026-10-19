@@ -4,10 +4,10 @@
 
 Modern visual styling for Markdown buffers in Emacs.
 
-![markdown-modern revealing and editing bold text, checking a task, and resizing a table as a cell is edited](images/demo.gif)
+![markdown-modern walking through bold and italic text, adding a list item, and resizing a table as a cell is edited](images/demo.gif)
 
 Move into text to reveal its markup, edit it, then move away to render it again.
-Check tasks with Space and edit table cells while the grid adjusts as you type.
+Continue a list with `M-RET` and edit table cells while the grid adjusts as you type.
 
 markdown-modern renders Markdown inline — headings, emphasis, code, tables, images — using text properties and overlays, in the spirit of [org-modern](https://github.com/minad/org-modern). It reveals the raw markup of the element under the cursor for editing, rather than showing raw syntax or a split-pane preview.
 
@@ -454,11 +454,11 @@ Install JetBrains Mono and Noto Sans to match the checked-in recording.
 
 The recorder opens a separate Emacs window that cannot take keyboard focus,
 reads the first three sections of `images/demo.md` into a temporary buffer,
-and runs the edits through Emacs's command loop. It exports real frames and
-encodes a looping GIF with an optimized palette. The source document stays
-unchanged, and temporary frames are removed when the script exits. Review the
-animation before committing it. Use `EMACS=/path/to/emacs make demo` to select
-another Emacs build.
+and runs cursor movements and edits through Emacs's command loop. It exports
+real frames and encodes a looping GIF with an optimized palette. The source
+document stays unchanged, and temporary frames are removed when the script
+exits. Review the animation before committing it. Use
+`EMACS=/path/to/emacs make demo` to select another Emacs build.
 
 Run `emacs -Q -L lisp -l scripts/screenshot.el` in a graphical session to
 render `images/demo.md` and replace `images/screenshot.png`. Review the image

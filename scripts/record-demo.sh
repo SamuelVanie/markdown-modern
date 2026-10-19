@@ -22,7 +22,7 @@ MARKDOWN_MODERN_DEMO_FRAMES="$frames_dir" \
 ffmpeg -hide_banner -loglevel warning -y \
     -f concat -safe 0 -i "$frames_dir/frames.ffconcat" \
     -filter_complex \
-    'fps=10,split[a][b];[a]palettegen[p];[b][p]paletteuse=dither=bayer:bayer_scale=3' \
+    'fps=20,split[a][b];[a]palettegen[p];[b][p]paletteuse=dither=bayer:bayer_scale=3' \
     -loop 0 "$frames_dir/demo.gif"
 mv "$frames_dir/demo.gif" images/demo.gif
 printf 'Recorded images/demo.gif\n'
