@@ -39,15 +39,18 @@
   (forward-char (or offset 0))
   (run-hooks 'post-command-hook))
 
-(defun markdown-modern-demo--walk (text &optional offset)
-  "Walk to the end of TEXT plus OFFSET, recording each arrow-key movement."
+(defun markdown-modern-demo--walk (text &optional offset line-only)
+  "Walk to the end of TEXT plus OFFSET, recording each arrow-key movement.
+When LINE-ONLY is non-nil, stop upon reaching the target line."
   (let* ((target (save-excursion
                    (goto-char (point-min))
                    (search-forward text)
                    (+ (point) (or offset 0))))
          (target-line (line-number-at-pos target))
          (steps 0))
-    (while (/= (point) target)
+    (while (if line-only
+               (/= (line-number-at-pos) target-line)
+             (/= (point) target))
       (when (> (setq steps (1+ steps)) 400)
         (error "Cannot walk to %S" text))
       (let* ((line (line-number-at-pos))
@@ -70,7 +73,7 @@
   (condition-case err
       (progn
         (markdown-modern-demo--caption "Markdown, in place")
-        (markdown-modern-demo--go "Read" -4)
+        (markdown-modern-demo--go "# ")
         (markdown-modern-demo--capture 1.4)
 
         (markdown-modern-demo--caption "Move into text to reveal its markup")
@@ -86,8 +89,9 @@
         (markdown-modern-demo--capture 0.8)
 
         (markdown-modern-demo--caption "Add another list item with M-RET")
-        (markdown-modern-demo--walk "heading, link or code block")
-        (markdown-modern-demo--capture 0.6)
+        (markdown-modern-demo--walk "heading, link or code block" nil t)
+        (execute-kbd-macro (kbd "C-e"))
+        (markdown-modern-demo--capture 1.0)
         (execute-kbd-macro (kbd "M-RET"))
         (markdown-modern-demo--capture 0.5)
         (markdown-modern-demo--type "Keep adding ideas")
@@ -108,7 +112,7 @@
         (insert markdown-modern-demo--source)
         (set-buffer-modified-p nil)
         (markdown-modern-demo--caption "Markdown, in place")
-        (markdown-modern-demo--go "Read" -4)
+        (markdown-modern-demo--go "# ")
         (markdown-modern-demo--capture 1.0)
         (write-region
          (concat markdown-modern-demo--manifest
