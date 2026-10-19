@@ -7,6 +7,8 @@
 ;; Tests that the element renderers produce the expected overlays: markers and
 ;; delimiters hidden (display ""), content carrying the right face.  The
 ;; tests exercise the required Tree-sitter parser.
+;; Run the list-marker pixel-alignment tests in a graphical Emacs with
+;; M-x ert RET ^render/list-marker- RET; batch mode skips pixel assertions.
 
 ;;; Code:
 
@@ -558,6 +560,70 @@ Only the text that the edit marks for re-rendering is rendered again."
     (let ((r (markdown-modern--markup-element-at 1)))
       (should r)
       (should (= (char-after (car r)) ?-)))))
+
+(ert-deftest render/list-marker-pixel-alignment ()
+  "Bullets and both checkbox states start their text at the same pixel."
+  (skip-unless (display-graphic-p))
+  (save-window-excursion
+    (with-temp-buffer
+      (switch-to-buffer (current-buffer))
+      (insert "- [x] Item\n- [ ] Item\n- Item\n\n")
+      (markdown-modern-mode)
+      ;; Make differences between the prose and marker fonts visible.
+      (face-remap-add-relative 'variable-pitch :height 1.3)
+      (goto-char (point-max))
+      (markdown-modern--jit-fontify (point-min) (point-max))
+      (dolist (scale '(0 2 -1))
+        (text-scale-set scale)
+        (redisplay t)
+        (let ((positions nil))
+          (save-excursion
+            (goto-char (point-min))
+            (while (search-forward "Item" nil t)
+              (push (car (posn-x-y (posn-at-point (- (point) 4))))
+                    positions)))
+          (should (= (length positions) 3))
+          (should (apply #'= positions))
+          ;; Toggling must preserve the same layout after redisplay.
+          (goto-char 3)
+          (markdown-modern-space-or-toggle-checkbox 1)
+          (redisplay t)
+          (should (= (car positions) (car (posn-x-y (posn-at-point 7))))))))))
+
+(ert-deftest render/list-marker-wrap-pixel-alignment ()
+  "Wrapped bullet and checkbox text aligns with its first visual line."
+  (skip-unless (display-graphic-p))
+  (save-window-excursion
+    (dolist (marker '("- " "- [ ] " "- [x] "))
+      (with-temp-buffer
+        (switch-to-buffer (current-buffer))
+        (insert marker (apply #'concat (make-list 100 "word ")) "\n\n")
+        (markdown-modern-mode)
+        (face-remap-add-relative 'variable-pitch :height 1.3)
+        (goto-char (1+ (length marker)))
+        (markdown-modern--jit-fontify (point-min) (point-max))
+        (redisplay t)
+        (let ((first-x (car (posn-x-y (posn-at-point)))))
+          (vertical-motion 1)
+          (should (= first-x (car (posn-x-y (posn-at-point))))))))))
+
+(ert-deftest render/list-marker-reveal-pixel-alignment ()
+  "Revealing an unordered marker does not move its text."
+  (skip-unless (display-graphic-p))
+  (save-window-excursion
+    (with-temp-buffer
+      (switch-to-buffer (current-buffer))
+      (insert "- Item\n\n")
+      (markdown-modern-mode)
+      (face-remap-add-relative 'variable-pitch :height 1.3)
+      (goto-char (point-max))
+      (markdown-modern--jit-fontify (point-min) (point-max))
+      (redisplay t)
+      (let ((rendered-x (car (posn-x-y (posn-at-point 3)))))
+        (goto-char 1)
+        (markdown-modern--update-reveal)
+        (redisplay t)
+        (should (= rendered-x (car (posn-x-y (posn-at-point 3)))))))))
 
 (ert-deftest render/checkbox-not-revealed ()
   "A task checkbox is a widget, so point on it reveals no markup.

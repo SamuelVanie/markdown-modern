@@ -1112,6 +1112,51 @@ Also handles list items inside blockquotes."
   (dolist (child (markdown-modern-ts--children elem))
     (markdown-modern-render--render-element child)))
 
+(defun markdown-modern-render--list-marker (start end content-start char face)
+  "Display CHAR in FACE, centred in the marker slot START..CONTENT-START.
+END is the end of the source marker, before its trailing whitespace.
+Return its overlay.  Keep the gap separate so checkbox commands still
+recognize only the checkbox itself as an interactive widget."
+  (let* ((glyph (propertize (string char) 'face face))
+         (columns (save-excursion
+                    (goto-char end)
+                    (let ((column (current-column)))
+                      (goto-char content-start)
+                      (1+ (- (current-column) column)))))
+         (metrics
+          (when (display-graphic-p)
+            ;; Measure redisplay's result, including fallback fonts and buffer
+            ;; face remapping.  `font-at' ignores text scaling; Emacs 30's
+            ;; `string-pixel-width' ignores buffer face remapping.
+            (let ((remapping face-remapping-alist))
+              (with-temp-buffer
+                (setq-local face-remapping-alist remapping
+                            display-line-numbers nil
+                            line-prefix nil
+                            wrap-prefix nil)
+                (insert glyph)
+                (let ((glyph-width (car (buffer-text-pixel-size nil nil t))))
+                  (erase-buffer)
+                  (insert (propertize (make-string columns ?\s) 'face 'fixed-pitch))
+                  (cons glyph-width (car (buffer-text-pixel-size nil nil t))))))))
+         (display
+          (if metrics
+              (let* ((padding (max 0 (- (cdr metrics) (car metrics))))
+                     (left (/ padding 2)))
+                (concat (propertize " " 'display `(space :width (,left)))
+                        glyph
+                        (propertize " " 'display `(space :width (,(- padding left))))))
+            (concat glyph (make-string (1- columns) ?\s))))
+         (ov (markdown-modern-render--get-overlay start end)))
+    ;; `before-string' allows the padding's display properties to take effect;
+    ;; display strings do not support recursive display specifications.
+    (overlay-put ov 'display "")
+    (overlay-put ov 'before-string display)
+    (let ((gap (markdown-modern-render--get-overlay end content-start)))
+      (overlay-put gap 'display "")
+      (overlay-put gap 'markdown-modern-type 'list-marker-gap))
+    ov))
+
 (defun markdown-modern-render--list-item (elem)
   "Render list item element ELEM.
 Includes `wrap-prefix' for proper line continuation."
@@ -1128,7 +1173,6 @@ Includes `wrap-prefix' for proper line continuation."
        ((looking-at "^\\([ \t]*\\)\\([-*+]\\)[ \t]+\\(\\[[ xX]\\]\\)[ \t]+")
         (let* ((indent (match-string 1))
                (marker-start (match-beginning 2))
-               (marker-end (match-end 2))
                (checkbox-start (match-beginning 3))
                (checkbox-end (match-end 3))
                (content-start (match-end 0))
@@ -1137,22 +1181,25 @@ Includes `wrap-prefix' for proper line continuation."
                (_level (/ (length indent) 2))
                (eol (line-end-position))
                ;; Wrap prefix: base indent + list indent + space for checkbox alignment
-               (wrap-str (concat base-indent indent "   ")))
+               (wrap-str (concat base-indent indent
+                                 (propertize "  " 'face 'fixed-pitch))))
           ;; Hide list marker
-          (let ((ov (markdown-modern-render--get-overlay marker-start (1+ marker-end))))
+          (let ((ov (markdown-modern-render--get-overlay marker-start checkbox-start)))
             (overlay-put ov 'display "")
             (overlay-put ov 'markdown-modern-type 'list-marker))
           ;; Render checkbox
-          (let ((ov (markdown-modern-render--get-overlay checkbox-start checkbox-end)))
-            (overlay-put ov 'display
-                         (propertize
-                          (string (cdr (assq (if is-checked 'checked 'unchecked)
-                                            markdown-modern-render--checkbox-chars)))
-                          'face (if is-checked
-                                    'markdown-modern-task-checked
-                                  'markdown-modern-task-unchecked)))
+          (let ((ov (markdown-modern-render--list-marker
+                     checkbox-start checkbox-end content-start
+                     (cdr (assq (if is-checked 'checked 'unchecked)
+                                markdown-modern-render--checkbox-chars))
+                     (if is-checked 'markdown-modern-task-checked
+                       'markdown-modern-task-unchecked))))
             (overlay-put ov 'markdown-modern-type 'checkbox)
             (overlay-put ov 'markdown-modern-checkbox-state (if is-checked 'checked 'unchecked)))
+          ;; Use the same font for the marker and gap as ordinary bullets.
+          (let ((ov (markdown-modern-render--get-overlay checkbox-start content-start)))
+            (overlay-put ov 'face 'fixed-pitch)
+            (overlay-put ov 'markdown-modern-type 'list-marker-slot))
           ;; Add wrap-prefix to content
           (when (< content-start eol)
             (let ((ov (markdown-modern-render--get-overlay content-start eol)))
@@ -1169,16 +1216,15 @@ Includes `wrap-prefix' for proper line continuation."
                            markdown-modern-render--bullet-chars))
                (eol (line-end-position))
                ;; Wrap prefix: base indent + list indent + space for bullet alignment
-               (wrap-str (concat base-indent indent "  ")))
+               (wrap-str (concat base-indent indent
+                                 (propertize "  " 'face 'fixed-pitch))))
           ;; Replace marker with bullet
-          (let ((ov (markdown-modern-render--get-overlay marker-start marker-end)))
-            (overlay-put ov 'display (propertize (string bullet)
-                                                'face 'markdown-modern-list-bullet))
+          (let ((ov (markdown-modern-render--list-marker
+                     marker-start marker-end content-start bullet
+                     'markdown-modern-list-bullet)))
             (overlay-put ov 'markdown-modern-type 'list-marker))
-          ;; Keep the marker slot (marker + trailing gap) monospaced.  This is a
-          ;; face-only overlay, so `reveal-markup' keeps it when the marker is
-          ;; revealed at point: the raw `- ' then shows fixed-pitch, the same
-          ;; width as the bullet glyph, so the content does not shift.
+          ;; Keep the source marker and gap monospaced on reveal: together
+          ;; they occupy the same width as the padded marker above.
           (let ((ov (markdown-modern-render--get-overlay marker-start content-start)))
             (overlay-put ov 'face 'fixed-pitch)
             (overlay-put ov 'markdown-modern-type 'list-marker-slot))

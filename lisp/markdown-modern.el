@@ -330,8 +330,7 @@ No background is used to avoid issues with `visual-line-mode' wrapping."
 (defface markdown-modern-list-bullet
   '((t :inherit fixed-pitch :foreground "#5588cc"))
   "Face for list bullet characters.
-Inherits `fixed-pitch' so the bullet glyph is the same width as the raw
-marker it replaces (no shift when the marker is revealed)."
+Uses `fixed-pitch' as the basis for the shared bullet and checkbox slot."
   :group 'markdown-modern-faces)
 
 (defface markdown-modern-list-number
@@ -340,12 +339,12 @@ marker it replaces (no shift when the marker is revealed)."
   :group 'markdown-modern-faces)
 
 (defface markdown-modern-task-unchecked
-  '((t :foreground "#888888"))
+  '((t :inherit fixed-pitch :foreground "#888888"))
   "Face for unchecked task checkboxes."
   :group 'markdown-modern-faces)
 
 (defface markdown-modern-task-checked
-  '((t :foreground "#22aa22"))
+  '((t :inherit fixed-pitch :foreground "#22aa22"))
   "Face for checked task checkboxes."
   :group 'markdown-modern-faces)
 
@@ -563,6 +562,7 @@ single source of truth shared between point-motion reveal and jit-lock.")
   (add-hook 'post-command-hook #'markdown-modern--update-reveal nil t)
   (setq markdown-modern--chars-tick (buffer-chars-modified-tick))
   (add-hook 'after-change-functions #'markdown-modern--after-change nil t)
+  (add-hook 'text-scale-mode-hook #'markdown-modern--on-text-scale nil t)
   ;; Clean up when switching to another major mode
   (add-hook 'change-major-mode-hook #'markdown-modern--teardown-buffer nil t)
 
@@ -585,12 +585,17 @@ single source of truth shared between point-motion reveal and jit-lock.")
       (when (derived-mode-p 'markdown-modern-mode)
         (markdown-modern--apply-text-width)))))
 
+(defun markdown-modern--on-text-scale ()
+  "Recalculate measured list marker padding after a text size change."
+  (jit-lock-refontify))
+
 (defun markdown-modern--teardown-buffer ()
   "Clean up markdown-modern-mode resources from buffer."
   ;; Stop jit-lock rendering and remove hooks
   (jit-lock-unregister #'markdown-modern--jit-fontify)
   (remove-hook 'post-command-hook #'markdown-modern--update-reveal t)
   (remove-hook 'after-change-functions #'markdown-modern--after-change t)
+  (remove-hook 'text-scale-mode-hook #'markdown-modern--on-text-scale t)
   (remove-hook 'change-major-mode-hook #'markdown-modern--teardown-buffer t)
   (remove-hook 'window-size-change-functions #'markdown-modern--on-window-size-change)
 
