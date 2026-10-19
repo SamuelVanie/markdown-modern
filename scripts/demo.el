@@ -94,7 +94,7 @@ When LINE-ONLY is non-nil, stop upon reaching the target line."
         (markdown-modern-demo--capture 1.0)
         (execute-kbd-macro (kbd "M-RET"))
         (markdown-modern-demo--capture 0.5)
-        (markdown-modern-demo--type "Keep adding ideas")
+        (markdown-modern-demo--type "Lists are formatted too")
         (markdown-modern-demo--capture 0.8)
 
         (markdown-modern-demo--caption "Edit a cell; the table adjusts as you type")

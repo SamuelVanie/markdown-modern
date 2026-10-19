@@ -13,11 +13,13 @@ trap 'exit 1' HUP INT TERM
 
 # Create the frame from a private daemon so its focus flags apply before it
 # appears.  A normal Emacs startup window could intercept the user's typing.
+# Bypass window-manager tiling so the recording keeps its requested dimensions.
 MARKDOWN_MODERN_DEMO_FRAMES="$frames_dir" \
     "$emacs_bin" -Q --fg-daemon="markdown-modern-demo-$$" -L lisp \
     --eval '(progn
       (select-frame (make-frame-on-display (getenv "DISPLAY")
-        (quote ((no-focus-on-map . t) (no-accept-focus . t)))))
+        (quote ((no-focus-on-map . t) (no-accept-focus . t)
+                (override-redirect . t)))))
       (load (expand-file-name "scripts/demo.el") nil t t))'
 ffmpeg -hide_banner -loglevel warning -y \
     -f concat -safe 0 -i "$frames_dir/frames.ffconcat" \
