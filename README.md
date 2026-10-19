@@ -13,39 +13,6 @@ markdown-modern renders Markdown inline — headings, emphasis, code, tables, im
 
 markdown-modern is a fork of [mark-graf](https://github.com/hyperZphere/mark-graf) by Marc Ansset.
 
-## How this fork differs from mark-graf
-
-The main changes are in editing, rendering and parser setup:
-
-- **One editing model.** Reveal just the markup under the cursor while keeping
-  its styling and nearby content rendered. This replaces mark-graf's line,
-  block and hybrid modes and its source/rendered toggles.
-- **Rendering follows the viewport.** `jit-lock` renders visible regions and
-  invalidates edited blocks, keeping large files responsive.
-- **Tables stay rendered while editing.** Only the active row becomes editable,
-  with its borders aligned to the surrounding grid. Columns fit the window and
-  long cells wrap inside the table.
-- **Task checkboxes act as widgets.** `SPC` toggles the checkbox under the cursor;
-  `Backspace` or `Delete` removes it and leaves a plain list item.
-- **Paragraphs follow Markdown's soft-break behavior.** Ordinary source newlines
-  display as spaces without changing the file. Explicit hard breaks stay visible.
-  A paragraph you type in shows its real lines, with a `↵` where they will join,
-  so a new line stays on its own line. Set
-  `markdown-modern-join-paragraph-lines` to `nil` to show lines as written.
-- **Tree-sitter is required.** Both Markdown grammars drive buffer parsing.
-  There is no regex parser fallback or opt-in switch. A dedicated command installs
-  missing grammars and setup errors explain what is needed.
-
-The core inline rendering, Mermaid renderer, math conversion and export commands
-come from mark-graf. Built-in HTML export still uses its own text conversion;
-the Tree-sitter requirement applies to editing and rendering Markdown buffers.
-
-Commands, faces and settings use the `markdown-modern-` prefix. When migrating
-an init file, use `markdown-modern-mode` and the settings below. The old
-`mark-graf-edit-style`, `mark-graf-update-delay` and view-toggle commands no longer
-apply. This fork also maintains checks for Emacs 30.1 and 31.1 and fresh package
-installations.
-
 ## Features
 
 **markdown-modern's own rendering and editing:**
@@ -418,6 +385,39 @@ All options are under `M-x customize-group RET markdown-modern RET`. The faces
 - Display math must stay within one paragraph; blank lines inside `$$` blocks
   are not recognized by the Markdown grammar.
 - Some complex nested structures may not render perfectly
+
+## How this fork differs from mark-graf
+
+The main changes are in editing, rendering and parser setup:
+
+- **One editing model.** Reveal just the markup under the cursor while keeping
+  its styling and nearby content rendered. This replaces mark-graf's line,
+  block and hybrid modes and its source/rendered toggles.
+- **Rendering follows the viewport.** `jit-lock` renders visible regions and
+  invalidates edited blocks, keeping large files responsive.
+- **Tables stay rendered while editing.** Only the active row becomes editable,
+  with its borders aligned to the surrounding grid. Columns fit the window and
+  long cells wrap inside the table.
+- **Task checkboxes act as widgets.** `SPC` toggles the checkbox under the cursor;
+  `Backspace` or `Delete` removes it and leaves a plain list item.
+- **Paragraphs follow Markdown's soft-break behavior.** Ordinary source newlines
+  display as spaces without changing the file. Explicit hard breaks stay visible.
+  A paragraph you type in shows its real lines, with a `↵` where they will join,
+  so a new line stays on its own line. Set
+  `markdown-modern-join-paragraph-lines` to `nil` to show lines as written.
+- **Tree-sitter is required.** Both Markdown grammars drive buffer parsing.
+  There is no regex parser fallback or opt-in switch. A dedicated command installs
+  missing grammars and setup errors explain what is needed.
+
+The core inline rendering, Mermaid renderer, math conversion and export commands
+come from mark-graf. Built-in HTML export still uses its own text conversion;
+the Tree-sitter requirement applies to editing and rendering Markdown buffers.
+
+Commands, faces and settings use the `markdown-modern-` prefix. When migrating
+an init file, use `markdown-modern-mode` and the settings in
+[Customization](#customization). The old `mark-graf-edit-style`,
+`mark-graf-update-delay` and view-toggle commands no longer apply. This fork also
+maintains checks for Emacs 30.1 and 31.1 and fresh package installations.
 
 ## Development
 
