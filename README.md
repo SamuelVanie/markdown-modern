@@ -4,10 +4,10 @@
 
 Modern visual styling for Markdown buffers in Emacs.
 
-![markdown-modern revealing bold markers at the cursor while nearby Markdown stays rendered](images/screenshot.png)
+![markdown-modern revealing and editing bold text, checking a task, and resizing a table as a cell is edited](images/demo.gif)
 
-The cursor is inside `**bold text**`, so its markers are visible for editing.
-Nearby emphasis, code and links stay rendered.
+Move into text to reveal its markup, edit it, then move away to render it again.
+Check tasks with Space and edit table cells while the grid adjusts as you type.
 
 markdown-modern renders Markdown inline — headings, emphasis, code, tables, images — using text properties and overlays, in the spirit of [org-modern](https://github.com/minad/org-modern). It reveals the raw markup of the element under the cursor for editing, rather than showing raw syntax or a split-pane preview.
 
@@ -432,6 +432,7 @@ make lint          # Install package-lint locally, then check all libraries
 make test-package  # Build, install and load the release tarball
 make ci            # Run the complete set of checks
 make bench         # Measure rendering speed
+make demo          # Record the README animation (graphical session)
 ```
 
 Lint tools are installed under `.build/`. Tarballs go in `dist/`. Run
@@ -444,7 +445,20 @@ on pushes, pull requests, manual requests and the first day of each month.
 Monthly and manual runs also test the newest upstream grammars, so we know when
 it is safe to update the pinned version.
 
-### Screenshot
+### Demo GIF and screenshot
+
+Run `make demo` (or `scripts/record-demo.sh`) to regenerate `images/demo.gif`.
+This requires FFmpeg, an X display (`DISPLAY`, or run under `xvfb-run`), and
+graphical Emacs with PNG frame export support and both Markdown grammars.
+Install JetBrains Mono and Noto Sans to match the checked-in recording.
+
+The recorder opens a separate Emacs window that cannot take keyboard focus,
+reads the first three sections of `images/demo.md` into a temporary buffer,
+and runs the edits through Emacs's command loop. It exports real frames and
+encodes a looping GIF with an optimized palette. The source document stays
+unchanged, and temporary frames are removed when the script exits. Review the
+animation before committing it. Use `EMACS=/path/to/emacs make demo` to select
+another Emacs build.
 
 Run `emacs -Q -L lisp -l scripts/screenshot.el` in a graphical session to
 render `images/demo.md` and replace `images/screenshot.png`. Review the image

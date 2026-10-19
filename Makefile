@@ -11,7 +11,7 @@ PACKAGE_FILE = dist/markdown-modern-$(VERSION).tar
 
 .PHONY: all compile test test-export test-cmd test-ts test-setup test-integration \
         test-verbose test-count test-package bench check-syntax checkdoc lint \
-        package melpa clean ci help
+        package melpa demo clean ci help
 
 # Default target
 all: compile
@@ -79,6 +79,10 @@ bench:
 		-l markdown-modern \
 		-l markdown-modern-bench \
 		--eval "(markdown-modern-bench)"
+
+# Record the README animation in a graphical Emacs session.
+demo:
+	@EMACS="$(EMACS)" ./scripts/record-demo.sh
 
 # Run tests with verbose output
 test-verbose:
@@ -184,6 +188,7 @@ help:
 	@echo "Other targets:"
 	@echo "  package          - Build distributable package"
 	@echo "  melpa            - Build the MELPA recipe locally"
+	@echo "  demo             - Record the README GIF (graphical Emacs + FFmpeg)"
 	@echo "  ci               - Run full CI pipeline"
 	@echo "  help             - Show this help"
 	@echo ""
