@@ -1,0 +1,191 @@
+[
+  {
+    "id": "flow-basic",
+    "loaded": true,
+    "width": 288,
+    "height": 388,
+    "clipped": []
+  },
+  {
+    "id": "flow-chain",
+    "loaded": true,
+    "width": 442,
+    "height": 124,
+    "clipped": []
+  },
+  {
+    "id": "flow-compact",
+    "loaded": true,
+    "width": 536,
+    "height": 124,
+    "clipped": []
+  },
+  {
+    "id": "flow-semicolons",
+    "loaded": true,
+    "width": 442,
+    "height": 124,
+    "clipped": []
+  },
+  {
+    "id": "flow-lr",
+    "loaded": true,
+    "width": 454,
+    "height": 124,
+    "clipped": []
+  },
+  {
+    "id": "flow-rl",
+    "loaded": true,
+    "width": 454,
+    "height": 124,
+    "clipped": []
+  },
+  {
+    "id": "flow-tb",
+    "loaded": true,
+    "width": 174,
+    "height": 320,
+    "clipped": []
+  },
+  {
+    "id": "flow-bt",
+    "loaded": true,
+    "width": 174,
+    "height": 320,
+    "clipped": []
+  },
+  {
+    "id": "flow-late-label",
+    "loaded": true,
+    "width": 216,
+    "height": 320,
+    "clipped": []
+  },
+  {
+    "id": "flow-shapes",
+    "loaded": true,
+    "width": 561,
+    "height": 166,
+    "clipped": []
+  },
+  {
+    "id": "flow-styles",
+    "loaded": true,
+    "width": 760,
+    "height": 124,
+    "clipped": []
+  },
+  {
+    "id": "flow-cycle",
+    "loaded": true,
+    "width": 372,
+    "height": 336,
+    "clipped": []
+  },
+  {
+    "id": "flow-escaped",
+    "loaded": true,
+    "width": 225,
+    "height": 214,
+    "clipped": []
+  },
+  {
+    "id": "sequence-basic",
+    "loaded": true,
+    "width": 310,
+    "height": 282,
+    "clipped": []
+  },
+  {
+    "id": "sequence-nested",
+    "loaded": true,
+    "width": 331,
+    "height": 432,
+    "clipped": []
+  },
+  {
+    "id": "state-basic",
+    "loaded": true,
+    "width": 179,
+    "height": 432,
+    "clipped": []
+  },
+  {
+    "id": "state-cycle",
+    "loaded": true,
+    "width": 642,
+    "height": 282,
+    "clipped": []
+  },
+  {
+    "id": "class-members",
+    "loaded": true,
+    "width": 182,
+    "height": 230,
+    "clipped": []
+  },
+  {
+    "id": "class-comments",
+    "loaded": true,
+    "width": 182,
+    "height": 170,
+    "clipped": []
+  },
+  {
+    "id": "class-inheritance",
+    "loaded": true,
+    "width": 264,
+    "height": 130,
+    "clipped": []
+  },
+  {
+    "id": "class-aggregation",
+    "loaded": true,
+    "width": 264,
+    "height": 170,
+    "clipped": []
+  },
+  {
+    "id": "class-links",
+    "loaded": true,
+    "width": 308,
+    "height": 170,
+    "clipped": []
+  },
+  {
+    "id": "er-basic",
+    "loaded": true,
+    "width": 449,
+    "height": 212,
+    "clipped": []
+  },
+  {
+    "id": "er-cardinality",
+    "loaded": true,
+    "width": 415,
+    "height": 196,
+    "clipped": []
+  },
+  {
+    "id": "er-dashed",
+    "loaded": true,
+    "width": 296,
+    "height": 158,
+    "clipped": []
+  },
+  {
+    "id": "er-isolated",
+    "loaded": true,
+    "width": 131,
+    "height": 158,
+    "clipped": []
+  },
+  {
+    "id": "leading-comment",
+    "loaded": true,
+    "width": 164,
+    "height": 200,
+    "clipped": []
+  }
+]

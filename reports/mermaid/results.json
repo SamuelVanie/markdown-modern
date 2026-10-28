@@ -1,0 +1,287 @@
+{
+  "cases": 42,
+  "rendered": 27,
+  "expected_fallback": 15,
+  "fixed_cases": 25,
+  "remaining_failed_checks": 0,
+  "results": [
+    {
+      "id": "flow-basic",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "flow-chain",
+      "before_errors": [
+        "Missing text: Done",
+        "Expected 2 connections; found 1."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "flow-compact",
+      "before_errors": [
+        "Missing text: client-app",
+        "Missing text: api-service"
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "flow-semicolons",
+      "before_errors": [
+        "Missing text: Start",
+        "Missing text: Work",
+        "Missing text: Done",
+        "Expected 2 connections; found 0."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "flow-lr",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "flow-rl",
+      "before_errors": [
+        "Node order does not follow RL."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "flow-tb",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "flow-bt",
+      "before_errors": [
+        "Node order does not follow BT."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "flow-late-label",
+      "before_errors": [
+        "Missing text: Destination",
+        "Unexpected text: B"
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "flow-shapes",
+      "before_errors": [
+        "Missing text: Start",
+        "Missing text: Process",
+        "Expected 2 connections; found 1.",
+        "Circle node missing."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "flow-styles",
+      "before_errors": [
+        "Expected 3 arrowheads; found 4."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "flow-cycle",
+      "before_errors": [
+        "Self-loop collapses to a retraced line."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "flow-escaped",
+      "before_errors": [
+        "Missing text: A; B & <tag>",
+        "Missing text: First",
+        "Missing text: Second"
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "flow-subgraph",
+      "before_errors": [
+        "Expected source fallback; renderer produced a partial or empty SVG."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "sequence-basic",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "sequence-nested",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "sequence-activation",
+      "before_errors": [
+        "Expected source fallback; renderer produced a partial or empty SVG."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "state-basic",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "state-cycle",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "state-composite",
+      "before_errors": [
+        "Expected source fallback; renderer produced a partial or empty SVG."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "state-notes",
+      "before_errors": [
+        "Expected source fallback; renderer produced a partial or empty SVG."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "class-members",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "class-comments",
+      "before_errors": [
+        "Missing text: Account",
+        "Unexpected text: %% internal comment",
+        "Unexpected text: Account{"
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "class-inheritance",
+      "before_errors": [
+        "Relationship marker endpoints or line styles are incorrect."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "class-aggregation",
+      "before_errors": [
+        "Relationship marker endpoints or line styles are incorrect."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "class-links",
+      "before_errors": [
+        "Relationship marker endpoints or line styles are incorrect."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "class-multiplicity",
+      "before_errors": [
+        "Expected source fallback; renderer produced a partial or empty SVG."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "er-basic",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "er-cardinality",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "er-dashed",
+      "before_errors": [
+        "Missing text: PERSON",
+        "Missing text: CAR",
+        "Missing text: drives",
+        "Non-positive SVG width",
+        "Dashed line missing."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "er-isolated",
+      "before_errors": [
+        "Missing text: CUSTOMER",
+        "Non-positive SVG width"
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "leading-comment",
+      "before_errors": [
+        "No SVG returned for this supported example."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "empty-flowchart",
+      "before_errors": [
+        "Expected source fallback; renderer produced a partial or empty SVG."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "empty-class",
+      "before_errors": [
+        "Expected source fallback; renderer produced a partial or empty SVG."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "empty-er",
+      "before_errors": [
+        "Expected source fallback; renderer produced a partial or empty SVG."
+      ],
+      "after_errors": []
+    },
+    {
+      "id": "pie",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "gantt",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "mindmap",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "timeline",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "journey",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "gitgraph",
+      "before_errors": [],
+      "after_errors": []
+    },
+    {
+      "id": "xychart",
+      "before_errors": [],
+      "after_errors": []
+    }
+  ]
+}
