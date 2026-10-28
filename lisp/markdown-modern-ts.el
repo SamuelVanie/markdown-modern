@@ -340,14 +340,20 @@ Optional START and END limit the range."
             "thematic_break" "pipe_table" "html_block")))
 
 (defun markdown-modern-ts--containing-block-bounds (start end)
-  "Get bounds of block containing region START to END."
+  "Expand START..END to complete outermost blocks.
+Include enclosing lists and blockquotes: region queries return these
+containers too, and rendering them also redraws their other children.
+END is exclusive, unless START and END describe a single position."
   (let ((block-start start)
         (block-end end))
-    ;; Expand to block boundaries
-    (when-let* ((start-block (markdown-modern-ts--containing-block start)))
-      (setq block-start (min block-start (markdown-modern-node-start start-block))))
-    (when-let* ((end-block (markdown-modern-ts--containing-block end)))
-      (setq block-end (max block-end (markdown-modern-node-end end-block))))
+    (dolist (pos (list start (max start (1- end))))
+      (when-let* ((block (markdown-modern-ts--containing-block pos)))
+        (let ((node (markdown-modern-node-treesit-node block)))
+          (while node
+            (when (markdown-modern-ts--block-element-p node)
+              (setq block-start (min block-start (treesit-node-start node))
+                    block-end (max block-end (treesit-node-end node))))
+            (setq node (treesit-node-parent node))))))
     (cons block-start block-end)))
 
 ;;; Line/Region Queries

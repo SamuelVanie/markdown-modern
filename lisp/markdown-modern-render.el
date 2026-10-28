@@ -48,6 +48,7 @@
 (defvar markdown-modern-math-block-scale)
 
 ;; Functions defined in markdown-modern-ts.el
+(declare-function markdown-modern-ts--containing-block-bounds "markdown-modern-ts")
 (declare-function markdown-modern-ts--elements-in-region "markdown-modern-ts")
 (declare-function markdown-modern-ts--inline-elements-in "markdown-modern-ts")
 (declare-function markdown-modern-ts--literal-inline-at-p "markdown-modern-ts")
@@ -213,12 +214,17 @@
            table-regions))
 
 (defun markdown-modern-render--render-region (start end)
-  "Render markdown elements in region from START to END."
+  "Render complete markdown blocks overlapping START..END."
   (when (and (not markdown-modern-render--rendering-p)
              markdown-modern--rendering-enabled)
-    (let ((markdown-modern-render--rendering-p t)
-          (inhibit-read-only t))
+    (let* ((markdown-modern-render--rendering-p t)
+           (inhibit-read-only t)
+           (bounds (markdown-modern-ts--containing-block-bounds start end))
+           (start (max (point-min) (car bounds)))
+           (end (min (point-max) (cdr bounds))))
       (with-silent-modifications
+        ;; Clear the full extent of every container that will be redrawn,
+        ;; including when a command requests only an inline span or marker.
         (markdown-modern-render--clear-region start end)
         (let ((elements (markdown-modern-ts--elements-in-region start end)))
           (dolist (elem elements)
