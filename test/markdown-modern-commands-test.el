@@ -424,5 +424,42 @@ Return the buffer text with @ at the new point."
     (goto-char 5)
     (should-not (markdown-modern--at-line-start-p))))  ; After text
 
+(ert-deftest cmd/table-controls-are-local-and-preserve-source ()
+  "Size and width commands affect only this buffer's display and support reset."
+  (let ((default-width markdown-modern-table-max-width))
+    (with-temp-buffer
+      (insert "| a | b |\n|---|---|\n| c | d |\n")
+      (markdown-modern-mode)
+      (setq-local markdown-modern-table-max-width nil)
+      (set-buffer-modified-p nil)
+      (let ((source (buffer-string))
+            (position (point))
+            (width (markdown-modern-render--table-display-width)))
+        (jit-lock-fontify-now)
+        (call-interactively (lookup-key markdown-modern-mode-map (kbd "C-c C-v -")))
+        (should (< markdown-modern--table-scale 1.0))
+        (should-not markdown-modern-table-max-width)
+        (should (text-property-any (point-min) (point-max) 'fontified nil))
+        (markdown-modern-table-grow 2)
+        (should (> markdown-modern--table-scale 1.0))
+        (markdown-modern-table-shrink 1000)
+        (should (= markdown-modern--table-scale 0.5))
+        (markdown-modern-table-grow 1000)
+        (should (= markdown-modern--table-scale 3.0))
+        (markdown-modern-table-adjust-width -5)
+        (should (= markdown-modern-table-max-width (- width 5)))
+        (markdown-modern-table-adjust-width -1000)
+        (should (= markdown-modern-table-max-width 5))
+        (call-interactively (lookup-key markdown-modern-mode-map (kbd "C-c C-v 0")))
+        (should-not markdown-modern-table-max-width)
+        (should (= markdown-modern--table-scale 1.0))
+        (should (equal (buffer-substring-no-properties (point-min) (point-max))
+                       (substring-no-properties source)))
+        (should (= (point) position))
+        (should-not (buffer-modified-p))))
+    (with-temp-buffer
+      (should (equal markdown-modern-table-max-width default-width))
+      (should (= markdown-modern--table-scale 1.0)))))
+
 (provide 'markdown-modern-commands-test)
 ;;; markdown-modern-commands-test.el ends here

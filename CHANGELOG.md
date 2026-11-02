@@ -3,6 +3,20 @@
 All notable changes to markdown-modern are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- Table size controls: `C-c C-v -` shrinks text and grid, `C-c C-v +` (or `=`)
+  grows them, and `C-c C-v 0` restores normal size and automatic fitting.
+  Prose is unchanged; a separate command can adjust only the width limit.
+
+### Fixed
+
+- Tables refit after window splits and resizing, using the narrowest view of
+  the buffer. Narrow windows can override the preferred column minimum, and
+  cell wrapping measures display columns to preserve wide characters.
+
 ## [2.1.0] - 2026-11-01
 
 Thanks to Hemant Kumar ([@gnufied](https://github.com/gnufied)) for local file

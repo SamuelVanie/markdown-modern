@@ -23,6 +23,20 @@
       (should (memq 'strong types))
       (should-not (memq 'emphasis types)))))
 
+(ert-deftest setup/window-layout-hook-is-buffer-local ()
+  "Tearing down one buffer does not disable resize handling in another."
+  (let ((hook #'markdown-modern--on-window-configuration-change))
+    (with-temp-buffer
+      (markdown-modern-mode)
+      (should (memq hook window-configuration-change-hook))
+      (with-temp-buffer
+        (markdown-modern-mode)
+        (should (memq hook window-configuration-change-hook))
+        (text-mode)
+        (should-not (memq hook window-configuration-change-hook)))
+      (should (memq hook window-configuration-change-hook)))
+    (should-not (memq hook (default-value 'window-configuration-change-hook)))))
+
 (ert-deftest setup/missing-inline-grammar-reports-install-command ()
   "Missing grammars fail before rendering setup and identify the installer."
   (with-temp-buffer

@@ -258,16 +258,33 @@ Use `M-,` (`xref-go-back`) to return to the Markdown buffer.
 Tables render as a box-drawing grid that stays drawn while you edit: the row
 under the cursor becomes editable in place, its `│` borders kept pixel-aligned
 to the rest of the box and re-flowing live as the cell text grows or shrinks.
-Tables are sized to fit the window, so they never wrap the buffer: columns are
-narrowed to fit (down to `markdown-modern-table-min-column-width`) and cells
-whose content still doesn't fit wrap onto multiple lines. Raise
-`markdown-modern-table-max-width` for natural width instead.
+Tables automatically refit when you split or resize a window. Columns narrow
+and long cells wrap onto multiple lines, keeping the text at its normal size.
+`markdown-modern-table-min-column-width` is a preferred minimum; narrow windows
+can shrink columns further. If the same buffer is visible in several windows,
+tables fit the narrowest view.
+
+Use the size controls below to scale the text and grid of all tables in the
+current buffer together, leaving prose unchanged. Each step changes the size
+by a factor of 1.1; a numeric prefix sets the number of steps. Columns refit
+at the new font size, so smaller text can reduce excessive wrapping in a split
+window. `C-c C-v 0` restores normal table text size and automatic fitting.
+The Markdown source stays unchanged. For a separate width-only adjustment,
+use `M-x markdown-modern-table-adjust-width`; this sets a fixed width limit
+until you reset it. For a wide fixed layout,
+raise `markdown-modern-table-max-width` and use `C-c C-v t` to scroll horizontally.
+Extremely narrow views may still need horizontal scrolling if even the borders
+and one character per column cannot fit. The active editing row shows its real
+source text, which can extend beyond the fitted columns until you leave it.
 
 | Key | Command | Description |
 |-----|---------|-------------|
 | `C-c \|` | `markdown-modern-insert-table` | Insert new table |
 | `TAB` | `markdown-modern-table-next-cell` | Next cell; in the last cell, add a row |
 | `S-TAB` | `markdown-modern-table-prev-cell` | Previous cell |
+| `C-c C-v -` | `markdown-modern-table-shrink` | Shrink table text and grid |
+| `C-c C-v +` or `C-c C-v =` | `markdown-modern-table-grow` | Grow table text and grid |
+| `C-c C-v 0` | `markdown-modern-table-fit-window` | Restore normal text size and automatic fitting |
 
 ### Export
 
@@ -307,8 +324,8 @@ All options are under `M-x customize-group RET markdown-modern RET`. The faces
 |----------|---------|-------------|
 | `markdown-modern-manage-text-width` | `nil` | Let markdown-modern constrain the reading width; when `nil` it leaves `fill-column` and wrapping to your config |
 | `markdown-modern-text-width` | `90` | Reading width in characters (used only when `manage-text-width` is non-nil) |
-| `markdown-modern-table-max-width` | `nil` | Cap rendered table width; `nil` = fit to the window (over-wide columns wrap onto multiple lines so they never wrap the buffer). Set a large number for natural width + horizontal scroll (`C-c C-v t`) |
-| `markdown-modern-table-min-column-width` | `8` | Narrowest a column is shrunk to before its content wraps onto multiple lines |
+| `markdown-modern-table-max-width` | `nil` | Cap rendered table width; `nil` = fit to the narrowest window showing the buffer. Set a large number for natural width + horizontal scroll (`C-c C-v t`) |
+| `markdown-modern-table-min-column-width` | `8` | Preferred minimum column width; narrow views can shrink further and wrap cell text |
 | `markdown-modern-table-max-cell-lines` | `nil` | Max wrapped lines per cell (`nil` = unlimited); content past the cap ends with `…` |
 | `markdown-modern-table-ascii-punctuation` | `nil` | Fold wide glyphs (`—`, `→`, `…`, …) to ASCII inside table cells. Enable if your font draws them wider than one monospace cell and misaligns the box |
 

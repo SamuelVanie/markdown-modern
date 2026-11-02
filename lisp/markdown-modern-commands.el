@@ -47,6 +47,8 @@
 (defvar markdown-modern--rendering-enabled)
 (defvar markdown-modern--full-render-done-p)
 (defvar markdown-modern--code-edit-buffer)
+(defvar markdown-modern-table-max-width)
+(defvar markdown-modern--table-scale)
 
 ;; Functions defined in markdown-modern.el
 (declare-function markdown-modern--fenced-code-block-content-at "markdown-modern")
@@ -58,6 +60,7 @@
 (declare-function markdown-modern-render--language-to-mode "markdown-modern-render")
 (declare-function markdown-modern-render--follow-link "markdown-modern-render")
 (declare-function markdown-modern-render--link-definition "markdown-modern-render")
+(declare-function markdown-modern-render--table-display-width "markdown-modern-render")
 
 ;; Functions defined in markdown-modern-ts.el
 (declare-function markdown-modern-ts--element-at "markdown-modern-ts")
@@ -506,6 +509,54 @@ characters forward."
     (insert "  ")))
 
 ;;; Table Commands
+
+;;;###autoload
+(defun markdown-modern-table-adjust-width (amount)
+  "Adjust this buffer's table width limit by AMOUNT character columns.
+A positive AMOUNT widens tables; a negative one narrows them and wraps cells.
+This changes only the display, not the Markdown source.  Use
+`markdown-modern-table-fit-window' to restore automatic fitting."
+  (interactive "nChange table width by columns: ")
+  (setq-local markdown-modern-table-max-width
+              (max 5 (+ (or markdown-modern-table-max-width
+                            (markdown-modern-render--table-display-width))
+                        amount)))
+  (jit-lock-refontify)
+  (message "Table width limit: %d columns (C-c C-v 0 restores automatic fit)"
+           markdown-modern-table-max-width))
+
+;;;###autoload
+(defun markdown-modern-table-shrink (&optional steps)
+  "Shrink this buffer's table text and grid by STEPS, keeping prose unchanged.
+STEPS defaults to one; a prefix argument specifies the number of steps."
+  (interactive "p")
+  (markdown-modern--table-adjust-scale (- (or steps 1))))
+
+;;;###autoload
+(defun markdown-modern-table-grow (&optional steps)
+  "Grow this buffer's table text and grid by STEPS, keeping prose unchanged.
+STEPS defaults to one; a prefix argument specifies the number of steps."
+  (interactive "p")
+  (markdown-modern--table-adjust-scale (or steps 1)))
+
+(defun markdown-modern--table-adjust-scale (steps)
+  "Scale tables by STEPS and recalculate their column widths.
+Each step changes size by a factor of 1.1, bounded to 50–300 percent."
+  (setq markdown-modern--table-scale
+        (max 0.5 (min 3.0 (* markdown-modern--table-scale
+                             (expt 1.1 (max -20 (min 20 steps)))))))
+  (jit-lock-refontify)
+  (message "Table size: %d%% (C-c C-v 0 resets size and automatic fit)"
+           (round (* 100 markdown-modern--table-scale))))
+
+;;;###autoload
+(defun markdown-modern-table-fit-window ()
+  "Restore normal table text size and automatic fitting in this buffer."
+  (interactive)
+  (setq-local markdown-modern-table-max-width nil)
+  (setq markdown-modern--table-scale 1.0)
+  (jit-lock-refontify)
+  (message "Tables fit the narrowest window automatically"))
 
 ;;;###autoload
 (defun markdown-modern-insert-table (&optional rows cols)

@@ -516,6 +516,15 @@ single source of truth shared between point-motion reveal and jit-lock.")
     map)
   "Keymap for `markdown-modern-mode'.")
 
+;; Install new bindings on source reload too: the keymap's defvar preserves
+;; its existing value in a running Emacs.
+(dolist (binding '(("-" . markdown-modern-table-shrink)
+                   ("+" . markdown-modern-table-grow)
+                   ("=" . markdown-modern-table-grow)
+                   ("0" . markdown-modern-table-fit-window)))
+  (define-key markdown-modern-mode-map (kbd (concat "C-c C-v " (car binding)))
+              (cdr binding)))
+
 (defun markdown-modern--setup-buffer ()
   "Set up the current buffer for markdown-modern-mode."
   (markdown-modern-ts--init)
@@ -546,8 +555,7 @@ single source of truth shared between point-motion reveal and jit-lock.")
           (setq-local visual-fill-column-center-text nil)
           (visual-fill-column-mode 1))
       ;; Fallback: use window margins to constrain width
-      (markdown-modern--apply-text-width)
-      (add-hook 'window-size-change-functions #'markdown-modern--on-window-size-change)))
+      (markdown-modern--apply-text-width)))
 
   ;; Optional visual modes (enabled by default; configurable).
   (when markdown-modern-visual-line
@@ -567,30 +575,39 @@ single source of truth shared between point-motion reveal and jit-lock.")
   (setq markdown-modern--chars-tick (buffer-chars-modified-tick))
   (add-hook 'after-change-functions #'markdown-modern--after-change nil t)
   (add-hook 'text-scale-mode-hook #'markdown-modern--on-text-scale nil t)
+  (add-hook 'window-configuration-change-hook
+            #'markdown-modern--on-window-configuration-change nil t)
   ;; Clean up when switching to another major mode
   (add-hook 'change-major-mode-hook #'markdown-modern--teardown-buffer nil t)
 
   ;; Set up imenu
   (setq-local imenu-create-index-function #'markdown-modern-imenu-create-index))
 
-(defun markdown-modern--apply-text-width ()
-  "Apply text width constraint using window margins."
-  (when (and markdown-modern-text-width (get-buffer-window))
-    (let* ((win (get-buffer-window))
-           (width (window-total-width win))
-           (text-width (+ markdown-modern-text-width markdown-modern-left-margin))
+(defun markdown-modern--apply-text-width (&optional window)
+  "Apply text width constraint using margins in WINDOW."
+  (when-let* ((win (or window (get-buffer-window)))
+              (text-width (and markdown-modern-text-width
+                               (+ markdown-modern-text-width
+                                  markdown-modern-left-margin))))
+    (let* ((width (window-total-width win))
            (right-margin (max 0 (- width text-width))))
       (set-window-margins win markdown-modern-left-margin right-margin))))
 
-(defun markdown-modern--on-window-size-change (frame)
-  "Update text width for the windows of FRAME on a size change."
-  (dolist (win (window-list frame))
-    (with-current-buffer (window-buffer win)
-      (when (derived-mode-p 'markdown-modern-mode)
-        (markdown-modern--apply-text-width)))))
+(defvar-local markdown-modern--table-window-width nil
+  "Last available window width used to invalidate table layouts.")
+
+(defun markdown-modern--on-window-configuration-change ()
+  "Refresh width-dependent rendering when this buffer's windows change."
+  (when (and markdown-modern-manage-text-width markdown-modern-text-width
+             (not (bound-and-true-p visual-fill-column-mode)))
+    (markdown-modern--apply-text-width (selected-window)))
+  (let ((width (markdown-modern-render--table-display-width)))
+    (unless (equal width markdown-modern--table-window-width)
+      (setq markdown-modern--table-window-width width)
+      (jit-lock-refontify))))
 
 (defun markdown-modern--on-text-scale ()
-  "Recalculate measured list marker padding after a text size change."
+  "Recalculate table layouts and list marker padding after a text size change."
   (jit-lock-refontify))
 
 (defun markdown-modern--teardown-buffer ()
@@ -601,7 +618,10 @@ single source of truth shared between point-motion reveal and jit-lock.")
   (remove-hook 'after-change-functions #'markdown-modern--after-change t)
   (remove-hook 'text-scale-mode-hook #'markdown-modern--on-text-scale t)
   (remove-hook 'change-major-mode-hook #'markdown-modern--teardown-buffer t)
-  (remove-hook 'window-size-change-functions #'markdown-modern--on-window-size-change)
+  (remove-hook 'window-configuration-change-hook
+               #'markdown-modern--on-window-configuration-change t)
+  ;; Remove the old global resize hook when reloading from an earlier version.
+  (remove-hook 'window-size-change-functions 'markdown-modern--on-window-size-change)
 
   ;; Reset state
   (setq markdown-modern--revealed-region nil)
@@ -687,9 +707,8 @@ the new code and overlays take effect."
 (defun markdown-modern-toggle-truncate-lines ()
   "Toggle between line wrapping and a horizontal-scroll view.
 Long unwrapped lines (e.g. code) can then be read by scrolling horizontally
-\(\\[scroll-left] / \\[scroll-right]) instead of soft-wrapping.  Tables are
-already sized to fit the window (over-long cells are elided with `…'), so they
-never wrap regardless; to read a wide table at its natural width, set
+\(\\[scroll-left] / \\[scroll-right]) instead of soft-wrapping.  Tables normally
+fit the window by wrapping long cells.  For natural table widths, set
 `markdown-modern-table-max-width' to a large number and turn this on to scroll.
 This remembers and restores whatever wrapping minor modes were active, so it
 does not impose `visual-line-mode' on a buffer that was not using it."

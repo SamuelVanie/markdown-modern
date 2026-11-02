@@ -1448,19 +1448,39 @@ Uses a conservative fixed count to ensure the rule never wraps."
     result))
 
 (defcustom markdown-modern-table-max-width nil
-  "Maximum total width for rendered tables.
-If nil, automatically uses window width minus margins."
+  "Maximum total width for rendered tables, in fixed-pitch characters.
+If nil, automatically fit the narrowest window displaying the buffer.
+An explicit width can exceed the window for horizontal scrolling."
   :type '(choice (const :tag "Auto (window width)" nil)
                  (integer :tag "Fixed width"))
   :group 'markdown-modern)
 
+(defvar-local markdown-modern--table-scale 1.0
+  "Display scale for table text and borders in the current buffer.")
+
+(defun markdown-modern-render--table-font-scale ()
+  "Return the combined table and buffer text scale."
+  (* markdown-modern--table-scale
+     (if (and (boundp 'text-scale-mode-amount)
+              (boundp 'text-scale-mode-step))
+         (expt text-scale-mode-step text-scale-mode-amount)
+       1)))
+
+(defun markdown-modern-render--table-face (face)
+  "Return table FACE with the current buffer's display scale."
+  (if (= markdown-modern--table-scale 1.0)
+      face
+    ;; Absolute heights prevent scaling twice when a grid/padding string
+    ;; inherits the face overlay of an editable row.
+    (list :inherit face :height
+          (max 1 (round (* (face-attribute face :height nil 'default)
+                           (markdown-modern-render--table-font-scale)))))))
+
 (defcustom markdown-modern-table-min-column-width 8
-  "Smallest width, in characters, a table column is shrunk to.
-When a table is too wide for the window, its columns are narrowed to fit; once a
-column reaches this width it is not narrowed further.  Cells whose content still
-does not fit are wrapped onto multiple lines instead (see
-`markdown-modern-render--table-format-row').  A column whose natural content is
-already narrower than this keeps its natural width."
+  "Preferred minimum width, in characters, for table columns.
+Columns may shrink further when necessary to fit a narrow window, down to
+the width of their widest character.  Long cells wrap onto multiple lines.
+A column whose natural content is narrower keeps its natural width."
   :type 'integer
   :group 'markdown-modern)
 
@@ -1505,61 +1525,61 @@ width calculation and the row formatter so they always agree."
                    s "")
       s)))
 
-(defun markdown-modern-render--table-char-pixel-width ()
+(defun markdown-modern-render--table-char-pixel-width (&optional window)
   "Approximate on-screen pixel width of one fixed-pitch table character.
 Used only to size tables to the window (see
 `markdown-modern-render--table-display-width').  `window-font-width' reports the
 nominal width and ignores a `text-scale-mode' zoom, so multiply by the
 text-scale factor.  This over-estimates the width slightly (so the table is
 sized a touch narrow), which is the safe direction: it never wraps.  Falls back
-to the frame's character width when no window/font info is available."
+to the frame's character width when no window/font info is available.
+Measure WINDOW when supplied."
   (let ((base (or (ignore-errors
-                    (window-font-width (get-buffer-window (current-buffer))
+                    (window-font-width (or window (get-buffer-window (current-buffer)))
                                        'markdown-modern-table))
                   (ignore-errors (window-font-width nil 'markdown-modern-table))
                   (and (fboundp 'frame-char-width) (frame-char-width))
-                  8))
-        (scale (if (and (boundp 'text-scale-mode-amount)
-                        (boundp 'text-scale-mode-step)
-                        (numberp text-scale-mode-amount)
-                        (not (zerop text-scale-mode-amount)))
-                   (expt text-scale-mode-step text-scale-mode-amount)
-                 1)))
-    (max 1 (round (* base scale)))))
+                  8)))
+    (max 1 (ceiling (* base (markdown-modern-render--table-font-scale))))))
 
 (defun markdown-modern-render--table-display-width ()
   "Available width for tables, in fixed-pitch character columns.
-Computed from the window's body pixel width divided by the fixed-pitch
-character pixel width, so it is accurate even under `variable-pitch-mode'
-where the table font differs from the buffer's default font.  Table overlays
-override `line-prefix' to \"\", so the table starts at the left text edge and no
-prefix needs subtracting.  Falls back to 80 when the buffer is not displayed."
-  (let ((win (get-buffer-window (current-buffer))))
-    (if win
-        (let* ((char-px (markdown-modern-render--table-char-pixel-width))
-               (body-px (window-body-width win t))
-               (cols (/ body-px (max 1 char-px)))
-               ;; The table inherits the buffer's left-margin `line-prefix'
-               ;; uniformly (so multi-line cells stay aligned), so reserve room
-               ;; for it.  Counting the margin as that many table columns
-               ;; slightly over-reserves (the margin font is usually narrower),
-               ;; which is the safe direction -- the table never wraps.
-               (margin (or (bound-and-true-p markdown-modern-left-margin) 0)))
-          ;; Also leave a one-column safety margin on the right edge.
-          (max 20 (- cols margin 1)))
-      (or markdown-modern-table-max-width 80))))
+Use the narrowest live window displaying this buffer, including other frames:
+table overlays are shared by all of them.  Reserve the left prefix and a
+continuation column.  Falls back to 80 when the buffer is not displayed."
+  (let ((windows (get-buffer-window-list (current-buffer) nil t)))
+    (if windows
+        (apply #'min
+               (mapcar
+                (lambda (win)
+                  (let* ((char-px (markdown-modern-render--table-char-pixel-width win))
+                         ;; The prose prefix does not shrink with the table.
+                         (prefix-char-px
+                          (let ((markdown-modern--table-scale 1.0))
+                            (markdown-modern-render--table-char-pixel-width win)))
+                         (margin (* (or (bound-and-true-p markdown-modern-left-margin) 0)
+                                    prefix-char-px))
+                         (line-numbers
+                          (if (bound-and-true-p display-line-numbers)
+                              (with-selected-window win (line-number-display-width t))
+                            0)))
+                    (max 1 (1- (/ (- (window-body-width win t) margin line-numbers)
+                                  char-px)))))
+                windows))
+      80)))
 
 (defun markdown-modern-render--table-column-widths (rows)
   "Calculate per-column character widths from ROWS, fitted to the window.
 Columns start at their widest cell (natural width).  If the table does not fit
 the available width, the widest columns are narrowed one character at a time
-\(down to `markdown-modern-table-min-column-width', or their natural width if
-that is already smaller) until it fits.  Columns narrower than their content are
-wrapped onto multiple lines by `markdown-modern-render--table-format-row', so
+\(first to `markdown-modern-table-min-column-width', then as narrow as their
+widest character if necessary) until it fits.  Columns narrower than their
+content are wrapped by `markdown-modern-render--table-format-row', so
 the table fits the window without eliding content.  The available width is
 `markdown-modern-table-max-width' when set, otherwise the window's fixed-pitch
 character capacity (see `markdown-modern-render--table-display-width')."
   (let ((widths nil)
+        (minimums nil)
         (num-cols 0))
     ;; First pass: natural widths (using string-width for display accuracy).
     (dolist (row rows)
@@ -1569,25 +1589,28 @@ character capacity (see `markdown-modern-render--table-display-width')."
           (let* ((trimmed (string-trim cell))
                  (is-sep (string-match-p "^[-:|]+$" trimmed))
                  (content (if is-sep "" (markdown-modern-render--table-cell-content cell)))
-                 (cell-width (string-width content)))
+                 (cell-width (string-width content))
+                 (char-width (apply #'max 1 (mapcar #'char-width content))))
             (if (nth col widths)
-                (when (> cell-width (nth col widths))
-                  (setf (nth col widths) cell-width))
-              (setq widths (append widths (list cell-width)))))
+                (setf (nth col widths) (max cell-width (nth col widths))
+                      (nth col minimums) (max char-width (nth col minimums)))
+              (setq widths (append widths (list cell-width))
+                    minimums (append minimums (list char-width)))))
           (setq col (1+ col)))))
     ;; Floor every column at 1 so empty columns are still visible.
     (setq widths (mapcar (lambda (w) (max 1 (or w 1))) widths))
-    ;; Narrow the widest columns until the table fits.  Each column's narrowing
-    ;; floor is the smaller of its natural width and the configured minimum, so
-    ;; short columns keep their natural width and wide columns stop at the
-    ;; minimum (then wrap).
+    ;; Preserve the preferred minimum when possible, but allow narrow windows
+    ;; to override it.  Never make a column too small for an indivisible glyph.
     (when (> num-cols 0)
       (let* ((available-total (or markdown-modern-table-max-width
                                   (markdown-modern-render--table-display-width)))
              (border-overhead (+ 1 num-cols (* 2 num-cols)))
              (available (max num-cols (- available-total border-overhead)))
-             (floors (mapcar (lambda (w) (min w markdown-modern-table-min-column-width))
-                             widths)))
+             (floors (cl-mapcar
+                      (lambda (w m) (max m (min w markdown-modern-table-min-column-width)))
+                      widths minimums)))
+        (when (> (apply #'+ floors) available)
+          (setq floors minimums))
         (while (and (> (apply #'+ widths) available)
                     ;; stop when every column has hit its floor
                     (cl-some (lambda (i) (> (nth i widths) (nth i floors)))
@@ -1602,27 +1625,28 @@ character capacity (see `markdown-modern-render--table-display-width')."
     widths))
 
 (defun markdown-modern-render--wrap-text (text width)
-  "Wrap TEXT to WIDTH, returning list of lines.
-Guarantees all returned lines are at most WIDTH characters.
-Forces breaks on long words when no space is found."
+  "Wrap TEXT to WIDTH display columns, returning a list of lines.
+Force breaks on long words when no space is found.  A character wider than
+WIDTH is kept intact on its own line."
   (let ((trimmed (string-trim text)))
     (if (or (zerop (length trimmed)) (<= width 0))
         (list "")
       (let ((lines nil)
             (remaining trimmed))
-        ;; Keep breaking while remaining text is longer than width
-        (while (> (length remaining) width)
-          (let* ((chunk (substring remaining 0 width))
+        (while (> (string-width remaining) width)
+          (let* ((chunk (truncate-string-to-width remaining width))
+                 ;; Ensure progress even when a single glyph exceeds WIDTH.
+                 (chunk (if (string-empty-p chunk) (substring remaining 0 1) chunk))
                  (last-space (string-match-p " [^ ]*$" chunk)))
             (if (and last-space (> last-space 0))
                 ;; Break at last space within width
                 (progn
                   (push (substring remaining 0 last-space) lines)
                   (setq remaining (string-trim-left (substring remaining last-space))))
-              ;; No space in chunk - force break at exactly width
+              ;; No space in chunk - break at the last complete character.
               (push chunk lines)
-              (setq remaining (string-trim-left (substring remaining width))))))
-        ;; Add final piece (guaranteed <= width)
+              (setq remaining (string-trim-left (substring remaining (length chunk)))))))
+        ;; Add final piece.
         (when (> (length remaining) 0)
           (push remaining lines))
         (or (nreverse lines) (list ""))))))
@@ -1723,8 +1747,10 @@ exactly with the rest of the box at any zoom/`text-scale' level -- no pixel
 measurement, which `window-font-width' reports incorrectly under remapping.
 IS-HEADER selects the header face.  Re-aligns live: each edit re-renders the
 row, recomputing the padding for the cell's new content width."
-  (let* ((face (if is-header 'markdown-modern-table-header 'markdown-modern-table))
-         (glyph (propertize "│" 'face 'markdown-modern-table-border))
+  (let* ((face (markdown-modern-render--table-face
+                (if is-header 'markdown-modern-table-header 'markdown-modern-table)))
+         (glyph (propertize "│" 'face (markdown-modern-render--table-face
+                                      'markdown-modern-table-border)))
          (pipes nil))
     ;; Face over the whole line so the cell text uses the fixed-pitch table font
     ;; (matching the box metrics) without hiding the text.
@@ -1817,18 +1843,17 @@ carrying `before-string'/`after-string' so they survive while an individual row
 is edited.  The row overlapping `markdown-modern--revealed-region' is rendered
 in place as an editable, aligned grid row (see
 `markdown-modern-render--table-row-edit'); every other row shows the rendered
-box.  Overlays override `line-prefix'/`wrap-prefix' with empty strings: Emacs
-applies those to every visual line, and the buffer-local indent would otherwise
-push the box past the window width and wrap it."
+box.  The layout reserves room for the buffer's `line-prefix'/`wrap-prefix',
+which all grid lines inherit so wrapped cells stay aligned."
   (let* ((top-border (propertize
                       (concat "┌" (mapconcat (lambda (w) (make-string (+ w 2) ?─)) widths "┬") "┐\n")
-                      'face 'markdown-modern-table))
+                      'face (markdown-modern-render--table-face 'markdown-modern-table)))
          (bottom-border (propertize
                          (concat "\n└" (mapconcat (lambda (w) (make-string (+ w 2) ?─)) widths "┴") "┘")
-                         'face 'markdown-modern-table))
+                         'face (markdown-modern-render--table-face 'markdown-modern-table)))
          (row-separator (propertize
                          (concat "├" (mapconcat (lambda (w) (make-string (+ w 2) ?─)) widths "┼") "┤\n")
-                         'face 'markdown-modern-table))
+                         'face (markdown-modern-render--table-face 'markdown-modern-table)))
          (num-rows (length row-info))
          (reveal markdown-modern--revealed-region)
          (row-idx 0))
@@ -1859,14 +1884,15 @@ push the box past the window width and wrap it."
           ;; Editing the delimiter row: show its raw `| --- |' source (in the
           ;; fixed-pitch table font) so its alignment markers can be edited.
           (let ((ov (markdown-modern-render--get-overlay bol eol)))
-            (overlay-put ov 'face 'markdown-modern-table)
+            (overlay-put ov 'face (markdown-modern-render--table-face 'markdown-modern-table))
             (overlay-put ov 'priority 200)
             (overlay-put ov 'markdown-modern-type 'table-edit)))
          (active
           (markdown-modern-render--table-row-edit bol eol is-hdr widths))
          (t
           (let ((formatted (markdown-modern-render--table-format-row cells widths is-sep))
-                (face (if is-hdr 'markdown-modern-table-header 'markdown-modern-table))
+                (face (markdown-modern-render--table-face
+                       (if is-hdr 'markdown-modern-table-header 'markdown-modern-table)))
                 (ov (markdown-modern-render--get-overlay bol eol)))
             ;; Do NOT override line-prefix/wrap-prefix here.  The buffer's
             ;; left-margin `wrap-prefix' reaches the embedded continuation lines
@@ -1894,12 +1920,14 @@ push the box past the window width and wrap it."
         (let ((ov (markdown-modern-render--get-overlay (1- (point)) (point))))
           (overlay-put ov 'display
                        (propertize (string (cdr (assq 'vertical markdown-modern-render--table-chars)))
-                                  'face 'markdown-modern-table-border))
+                                  'face (markdown-modern-render--table-face
+                                         'markdown-modern-table-border)))
           (overlay-put ov 'markdown-modern-type 'table-border)))
       ;; Apply header face if needed
       (when is-header
         (let ((ov (markdown-modern-render--get-overlay start end)))
-          (overlay-put ov 'face 'markdown-modern-table-header)
+          (overlay-put ov 'face (markdown-modern-render--table-face
+                                'markdown-modern-table-header))
           (overlay-put ov 'markdown-modern-type 'table-header)
           (overlay-put ov 'priority -5))))))
 

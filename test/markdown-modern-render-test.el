@@ -1008,6 +1008,90 @@ Padding with real spaces (a virtual `before-string'), rather than pixel
       ;; neither column is narrowed below the configured minimum
       (should (cl-every (lambda (w) (>= w 8)) widths)))))
 
+(ert-deftest render/table-narrow-window-overrides-preferred-minimum ()
+  "A split window can narrow all columns below the preferred minimum."
+  (let* ((markdown-modern-table-max-width 22)
+         (markdown-modern-table-min-column-width 8)
+         (row '("long first heading" "long second heading" "long third heading"))
+         (widths (markdown-modern-render--table-column-widths (list row)))
+         (rendered (markdown-modern-render--table-format-row row widths nil)))
+    (should (cl-every (lambda (w) (< w 8)) widths))
+    (dolist (line (split-string rendered "\n"))
+      (should (<= (string-width line) 22)))
+    (should-not (string-match-p "…" rendered))))
+
+(ert-deftest render/table-wide-characters-wrap-without-loss ()
+  "Display-column wrapping keeps wide and combining characters aligned."
+  (dolist (content '("日本語の表" "ééééé"))
+    (let ((lines (markdown-modern-render--table-wrap-cell content 4)))
+      (should (equal (apply #'concat lines) content))
+      (should (cl-every (lambda (line) (<= (string-width line) 4)) lines))))
+  ;; Even an impossibly small budget preserves each complete wide glyph.
+  (let* ((markdown-modern-table-max-width 5)
+         (widths (markdown-modern-render--table-column-widths '(("日本語")))))
+    (should (equal widths '(2)))
+    (should (equal (markdown-modern-render--table-wrap-cell "日本語" 2)
+                   '("日" "本" "語")))))
+
+(ert-deftest render/table-scale-covers-text-grid-and-editing ()
+  "Table scaling reaches every table face while leaving prose untouched."
+  (markdown-modern-render-test--with
+      "Prose\n\n| Name | State |\n|---|---|\n| Item | Ready |\n"
+    (let ((prose-face (get-char-property (point-min) 'face))
+          (height (round (* 0.8 (face-attribute 'markdown-modern-table :height nil 'default)))))
+      (setq markdown-modern--table-scale 0.8)
+      (goto-char (point-min))
+      (search-forward "Item")
+      (setq markdown-modern--revealed-region
+            (markdown-modern--markup-element-at (point)))
+      (markdown-modern--jit-fontify (point-min) (point-max))
+      (should (equal (get-char-property (point-min) 'face) prose-face))
+      (dolist (ov (overlays-in (point-min) (point-max)))
+        (when (memq (overlay-get ov 'markdown-modern-type)
+                    '(table table-grid-line table-edit))
+          (let ((face (overlay-get ov 'face)))
+            (when face (should (= (plist-get face :height) height))))
+          (dolist (property '(display before-string after-string))
+            (let ((string (overlay-get ov property)))
+              (when (and (stringp string) (> (length string) 0))
+                (should (= (plist-get (get-text-property 0 'face string) :height)
+                           height))))))))))
+
+(ert-deftest render/table-refits-after-split-and-delete ()
+  "Resizing invalidates layout and fits the narrowest view of one buffer."
+  (save-window-excursion
+    (delete-other-windows)
+    (with-temp-buffer
+      (insert "| first long column heading | second long column heading | third long column heading |\n|---|---|---|\n| short | short | short |\n")
+      (let ((markdown-modern-table-max-width nil)
+            (markdown-modern-left-margin 0)
+            (markdown-modern-manage-text-width nil))
+        (markdown-modern-mode)
+        (set-window-buffer (selected-window) (current-buffer))
+        (markdown-modern--on-window-configuration-change)
+        (jit-lock-fontify-now)
+        (let* ((wide (markdown-modern-render--table-display-width))
+               (other (split-window-right 28)))
+          ;; Select the wider view: it must still use the narrow view's budget.
+          (select-window other)
+          (run-hooks 'window-configuration-change-hook)
+          (should (text-property-any (point-min) (point-max) 'fontified nil))
+          (jit-lock-fontify-now)
+          (let ((narrow (markdown-modern-render--table-display-width)))
+            (should (< narrow wide))
+            (dolist (ov (overlays-in (point-min) (point-max)))
+              (when (eq (overlay-get ov 'markdown-modern-type) 'table)
+                (dolist (line (split-string (overlay-get ov 'display) "\n"))
+                  (should (<= (string-width line) narrow))))))
+          (delete-other-windows)
+          (run-hooks 'window-configuration-change-hook)
+          (should (text-property-any (point-min) (point-max) 'fontified nil))
+          (should (= wide (markdown-modern-render--table-display-width)))
+          (jit-lock-fontify-now)
+          ;; Height-only changes or redundant notifications need no re-render.
+          (run-hooks 'window-configuration-change-hook)
+          (should-not (text-property-any (point-min) (point-max) 'fontified nil)))))))
+
 (ert-deftest render/table-ascii-punctuation-fold ()
   "With ASCII folding on, wide glyphs become ASCII in cells; off keeps them."
   (let ((markdown-modern-table-max-cell-lines nil))
